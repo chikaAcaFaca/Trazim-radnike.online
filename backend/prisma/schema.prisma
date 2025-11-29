@@ -1,0 +1,709 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Models (SQLite version - no enums)
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?   @unique
+  phoneVerified Boolean   @default(false)
+  emailVerified Boolean   @default(false)
+  passwordHash  String
+  role          String    @default("EMPLOYER") // GUEST, EMPLOYER, ADMIN
+  profileType   String    @default("BUSINESS") // BUSINESS, WORKER, HOUSEHOLD
+  gdprConsent   Boolean   @default(false)
+  gdprConsentAt DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // Relations
+  company            Company?
+  worker             Worker?
+  household          Household?
+  conversations      Conversation[]
+  verificationTokens VerificationToken[]
+  auditLogs          AuditLog[]
+  payments           Payment[]
+  subscriptions      Subscription[]
+}
+
+model Company {
+  id            String   @id @default(cuid())
+  slug          String?  @unique // Public URL slug - will be populated from id
+  userId        String   @unique
+  name          String
+  country       String
+  city          String?
+  industry      String?
+  description   String?
+  website       String?
+  logoUrl       String?
+  coverImageUrl String?  // Hero/cover slika kao na FB/LinkedIn
+  // Business registration data
+  pib           String?  // Poreski identifikacioni broj (Tax ID)
+  maticniBroj   String?  // Company registration number
+  contactName   String?  // Contact person name
+  contactPhone  String?  // Additional contact phone
+  contactEmail  String?  // Public contact email
+  address       String?  // Company address
+  // Location for map
+  latitude      Float?
+  longitude     Float?
+  // Social media & external profiles
+  facebookUrl   String?
+  instagramUrl  String?
+  twitterUrl    String?  // X.com
+  linkedinUrl   String?
+  eVizitkUrl    String?  // e-vizitka.online
+  bzrPortalUrl  String?  // www.bzr-portal.com
+  // Profile visibility
+  isPublicProfile Boolean @default(false)  // Show public business profile
+  // Profile customization
+  profileTemplate String @default("modern")  // modern, classic, minimal, bold, elegant
+  profileColorSet String @default("blue")    // blue, green, purple, custom
+  profilePrimaryColor String?                // Custom primary color (hex)
+  profileSecondaryColor String?              // Custom secondary color (hex)
+  profileAccentColor String?                 // Custom accent color (hex)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs Job[]
+  posts CompanyPost[]
+}
+
+model Job {
+  id                String    @id @default(cuid())
+  companyId         String
+  title             String
+  slug              String    @unique
+  descriptionFull   String
+  descriptionPublic String?
+  salary            String?
+  salaryMin         Int?
+  salaryMax         Int?
+  salaryCurrency    String    @default("EUR")
+  numWorkers        Int
+  location          String
+  locationCity      String?
+  locationCountry   String?
+  workHours         String?
+  housing           Boolean   @default(false)
+  housingDesc       String?
+  experience        String?
+  languages         String    @default("[]") // JSON array as string for SQLite
+  requirements      String?
+  benefits          String?
+  urgency           String    @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  status            String    @default("DRAFT") // DRAFT, POSTED, CLOSED, FILLED
+  visibility        String    @default("PRIVATE") // PRIVATE, SECRET, PUBLIC
+  secretToken       String?   @unique
+  secretExpiresAt   DateTime?
+  postedAt          DateTime?
+  closedAt          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  // Relations
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploads       Upload[]
+  messages      Message[]
+  conversations Conversation[]
+}
+
+model Upload {
+  id          String    @id @default(cuid())
+  jobId       String
+  fileName    String
+  fileType    String
+  fileSize    Int
+  url         String
+  uploadType  String // WORKPLACE_PHOTO, HOUSING_PHOTO, DOCUMENT
+  description String?
+  uploadedBy  String
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  // Relations
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  jobId     String?
+  userId    String
+  type      String // AI_ASSISTANT, EMPLOYER_ADMIN
+  status    String   @default("ACTIVE") // ACTIVE, COMPLETED, ARCHIVED
+  metadata  String? // JSON as string
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  job      Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+}
+
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String
+  jobId          String?
+  fromUserId     String?
+  fromRole       String // EMPLOYER, ADMIN, AI_ASSISTANT
+  content        String
+  isFromAI       Boolean   @default(false)
+  attachments    String? // JSON as string
+  metadata       String? // JSON as string
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  job          Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  targetType String
+  targetId   String
+  ipAddress  String?
+  userAgent  String?
+  details    String? // JSON as string
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model VerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  type      String // EMAIL_VERIFICATION, PHONE_VERIFICATION, PASSWORD_RESET
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Company posts (blog/story/promo content)
+model CompanyPost {
+  id          String   @id @default(cuid())
+  companyId   String
+  title       String
+  content     String   // Promo text/description
+  slug        String   @unique
+  type        String   @default("STORY") // STORY, PROMO, NEWS, UPDATE
+  status      String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  // SEO & sharing
+  excerpt     String?  // Short description for social sharing
+  coverImage  String?  // Main image URL for social sharing
+  // Social sharing metadata
+  ogTitle     String?  // Open Graph title (for Facebook/LinkedIn)
+  ogDescription String? // Open Graph description
+  // Stats
+  viewCount   Int      @default(0)
+  shareCount  Int      @default(0)
+  // Timestamps
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  // Relations
+  company Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  images  CompanyPostImage[]
+}
+
+model CompanyPostImage {
+  id        String   @id @default(cuid())
+  postId    String
+  url       String
+  fileName  String
+  fileSize  Int
+  order     Int      @default(0) // For ordering images in gallery
+  caption   String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  post CompanyPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+// Chatbot session for registration flow
+model ChatbotSession {
+  id                  String   @id @default(cuid())
+  sessionId           String   @unique // Either userId or guestSessionId
+  step                String   @default("init")
+  collectedData       String?  // JSON as string
+  conversationHistory String?  // JSON array of {role, content} messages
+  lastActivity        DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// Worker profile (majstori, radnici koji nude usluge)
+model Worker {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  slug            String?  @unique // Public URL slug
+  // Personal info
+  firstName       String
+  lastName        String
+  displayName     String?  // Kako želi da se prikazuje (npr. "Marko M." ili "Marko Majstor")
+  profession      String   // Glavna profesija: zidar, keramičar, moler, mehaničar, itd.
+  professions     String?  // JSON array dodatnih profesija/veština
+  bio             String?  // Kratak opis o sebi
+  // Location
+  country         String   @default("RS")
+  countryCode     String   @default("+381") // Auto-detected phone country code
+  city            String?
+  latitude        Float?
+  longitude       Float?
+  workRadius      Int?     // Radius u km gde je spreman da radi
+  // Contact
+  phone           String?
+  phoneVerified   Boolean  @default(false)
+  email           String?  // Javni email za kontakt
+  // Images
+  avatarUrl       String?  // Profilna slika
+  coverImageUrl   String?  // Hero/cover slika kao na FB/LinkedIn
+  // Social media & external profiles
+  facebookUrl     String?
+  instagramUrl    String?
+  twitterUrl      String?  // X.com
+  linkedinUrl     String?
+  youtubeUrl      String?
+  tiktokUrl       String?
+  eVizitkUrl      String?  // e-vizitka.online link
+  websiteUrl      String?  // Lični sajt
+  // Work preferences
+  hourlyRate      Int?     // Satnica u RSD
+  dailyRate       Int?     // Dnevnica u RSD
+  currency        String   @default("RSD")
+  availability    String   @default("AVAILABLE") // AVAILABLE, BUSY, NOT_AVAILABLE
+  availableFrom   DateTime?
+  // Experience & skills
+  yearsExperience Int?
+  skills          String?  // JSON array of skills
+  certificates    String?  // JSON array of certificates
+  languages       String?  // JSON array of languages
+  // Portfolio
+  portfolioImages String?  // JSON array of image URLs
+  // Profile settings
+  isPublicProfile Boolean  @default(true)
+  showPhone       Boolean  @default(false)
+  showEmail       Boolean  @default(true)
+  // Stats
+  profileViews    Int      @default(0)
+  matchCount      Int      @default(0)
+  rating          Float?   // Prosečna ocena
+  reviewCount     Int      @default(0)
+  // Timestamps
+  lastActiveAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  receivedMatches WorkerMatch[] @relation("WorkerMatches")
+  reviews         WorkerReview[]
+  posts           WorkerPost[]
+}
+
+// Worker posts (portfolio, completed projects)
+model WorkerPost {
+  id          String   @id @default(cuid())
+  workerId    String
+  title       String
+  description String?
+  type        String   @default("PROJECT") // PROJECT, BEFORE_AFTER, TIP, PROMO
+  // Images
+  images      String?  // JSON array of image URLs
+  beforeImage String?  // For before/after posts
+  afterImage  String?
+  // Stats
+  viewCount   Int      @default(0)
+  likeCount   Int      @default(0)
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  // Relations
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+}
+
+// Worker reviews
+model WorkerReview {
+  id          String   @id @default(cuid())
+  workerId    String
+  reviewerId  String   // User who left the review
+  rating      Int      // 1-5 stars
+  comment     String?
+  jobType     String?  // What type of job was done
+  isVerified  Boolean  @default(false) // Verified purchase/job
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+}
+
+// Matching system (Tinder-style for workers)
+model WorkerMatch {
+  id          String   @id @default(cuid())
+  workerId    String
+  employerId  String   // User (employer) who liked
+  jobId       String?  // Optional: specific job this match is for
+  // Match status
+  status      String   @default("PENDING") // PENDING, MATCHED, REJECTED, EXPIRED
+  // Who initiated
+  employerLiked Boolean @default(false) // Employer swiped right on worker
+  workerLiked   Boolean @default(false) // Worker accepted the match
+  // Payment
+  isPaid        Boolean @default(false)
+  paidAmount    Int?    // Amount in RSD (e.g., 100 RSD)
+  paidAt        DateTime?
+  // Contact revealed
+  contactRevealed Boolean @default(false)
+  contactRevealedAt DateTime?
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  expiresAt   DateTime? // Match expires after X days if not accepted
+
+  // Relations
+  worker Worker @relation("WorkerMatches", fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@unique([workerId, employerId, jobId])
+}
+
+// Profession categories
+model Profession {
+  id          String   @id @default(cuid())
+  name        String   @unique // zidar, keramičar, moler, mehaničar, etc.
+  nameEn      String?  // English name
+  category    String   // CONSTRUCTION, AUTOMOTIVE, HOME_SERVICES, etc.
+  icon        String?  // Emoji or icon name
+  description String?
+  isActive    Boolean  @default(true)
+  workerCount Int      @default(0) // Cache of how many workers have this profession
+  createdAt   DateTime @default(now())
+}
+
+// Conversation summary for sales team review
+model ConversationSummary {
+  id               String   @id @default(cuid())
+  conversationId   String   @unique
+  userId           String
+  userEmail        String?
+  companyName      String?
+  contactName      String?
+  // Collected data from chatbot
+  collectedData    String?  // JSON as string
+  // Summary and interests
+  summary          String   // Short summary of conversation
+  interests        String?  // JSON array of interests
+  intents          String?  // JSON array of detected intents
+  questionsAsked   String?  // JSON array of questions user asked
+  // Sales info
+  leadScore        Int      @default(0) // 0-100 score for lead quality
+  leadStatus       String   @default("NEW") // NEW, CONTACTED, QUALIFIED, CONVERTED, LOST
+  salesNotes       String?  // Notes from sales team
+  // Timestamps
+  messageCount     Int      @default(0)
+  firstMessageAt   DateTime
+  lastMessageAt    DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// ============================================
+// Household Profile (Domaćinstva - fizička lica koja traže majstore)
+// ============================================
+
+model Household {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  slug            String?  @unique // Public URL slug
+  // Personal info
+  displayName     String   // Kako želi da se prikazuje (npr. "Marko P." ili "Porodica Petrović")
+  firstName       String?
+  lastName        String?
+  // Location
+  country         String   @default("RS")
+  city            String?
+  address         String?  // Opcionalno, privatno
+  latitude        Float?
+  longitude       Float?
+  // Contact
+  phone           String?
+  phoneVerified   Boolean  @default(false)
+  email           String?  // Javni email za kontakt
+  // Preferences
+  preferredContact String  @default("PLATFORM") // PLATFORM, PHONE, EMAIL
+  // Profile settings
+  isPublicProfile Boolean  @default(false)
+  showPhone       Boolean  @default(false)
+  showEmail       Boolean  @default(true)
+  showAddress     Boolean  @default(false)
+  // Stats
+  profileViews    Int      @default(0)
+  jobsPosted      Int      @default(0)
+  reviewsGiven    Int      @default(0)
+  // Timestamps
+  lastActiveAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceRequests ServiceRequest[]
+}
+
+// ============================================
+// Service Requests (Zahtevi za majstore od domaćinstava)
+// ============================================
+
+model ServiceRequest {
+  id              String   @id @default(cuid())
+  householdId     String
+  // Request details
+  title           String   // npr. "Potreban keramičar za kupatilo"
+  description     String
+  profession      String   // Tražena profesija: keramičar, moler, vodoinstolater...
+  // Location
+  city            String
+  address         String?  // Privatno, samo za matched majstore
+  // Timing
+  urgency         String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  preferredDate   DateTime?
+  flexibleDates   Boolean  @default(true)
+  // Budget
+  budgetMin       Int?     // Min budget u RSD
+  budgetMax       Int?     // Max budget u RSD
+  budgetType      String   @default("TOTAL") // TOTAL, HOURLY, DAILY
+  // Status
+  status          String   @default("OPEN") // OPEN, IN_PROGRESS, COMPLETED, CANCELLED
+  // Priority (paid feature)
+  isPriority      Boolean  @default(false)
+  isUrgent        Boolean  @default(false) // Paid URGENT badge
+  // Stats
+  viewCount       Int      @default(0)
+  responseCount   Int      @default(0)
+  // Timestamps
+  expiresAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  // Relations
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  matches         ServiceMatch[]
+}
+
+// ============================================
+// Service Match (Match između majstora i zahteva)
+// ============================================
+
+model ServiceMatch {
+  id                String   @id @default(cuid())
+  serviceRequestId  String
+  workerId          String
+  // Match status
+  status            String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, COMPLETED
+  // Who initiated
+  workerApplied     Boolean  @default(false) // Worker se prijavio
+  householdInvited  Boolean  @default(false) // Domaćinstvo pozvalo majstora
+  // Communication
+  initialMessage    String?  // Prva poruka
+  // Payment for contact
+  contactPaid       Boolean  @default(false)
+  contactPaidAt     DateTime?
+  contactPaidAmount Int?     // Amount in RSD
+  // Contact revealed
+  contactRevealed   Boolean  @default(false)
+  contactRevealedAt DateTime?
+  // Rating (after job completion)
+  workerRating      Int?     // 1-5 ocena majstora
+  householdRating   Int?     // 1-5 ocena domaćinstva
+  workerReview      String?  // Recenzija majstora
+  householdReview   String?  // Recenzija od domaćinstva
+  // Timestamps
+  respondedAt       DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  serviceRequest    ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceRequestId, workerId])
+}
+
+// ============================================
+// Payment & Subscription System
+// ============================================
+
+model Subscription {
+  id              String   @id @default(cuid())
+  userId          String
+  // Plan details
+  planType        String   // FREE, STARTER, PRO, UNLIMITED
+  planName        String   // Display name
+  // Pricing (in RSD)
+  price           Int      // Monthly price
+  currency        String   @default("RSD")
+  // Credits/Limits
+  creditsTotal    Int      @default(0)  // Total credits for this period
+  creditsUsed     Int      @default(0)  // Credits used
+  creditsRemaining Int     @default(0)  // Calculated: total - used
+  // Dates
+  startDate       DateTime @default(now())
+  endDate         DateTime // When subscription expires
+  // Status
+  status          String   @default("ACTIVE") // ACTIVE, EXPIRED, CANCELLED, SUSPENDED
+  autoRenew       Boolean  @default(false)
+  // Payment reference
+  lastPaymentId   String?
+  // Timestamps
+  cancelledAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  userId          String
+  // Payment details
+  amount          Int      // Amount in smallest unit (RSD paras or just RSD)
+  currency        String   @default("RSD")
+  // Payment type
+  type            String   // SUBSCRIPTION, TOPUP, PRIORITY, URGENT, CONTACT_REVEAL
+  description     String?
+  // Payment method
+  method          String   // IPS_QR, CARD, PAYPAL, MANUAL
+  // IPS specific
+  ipsReference    String?  // IPS payment reference number
+  ipsQrCode       String?  // Generated QR code data
+  // Status
+  status          String   @default("PENDING") // PENDING, COMPLETED, FAILED, REFUNDED, EXPIRED
+  // References
+  subscriptionId  String?  // If payment is for subscription
+  matchId         String?  // If payment is for contact reveal
+  serviceRequestId String? // If payment is for priority/urgent
+  // Verification
+  verifiedAt      DateTime?
+  verifiedBy      String?  // Admin who verified manual payment
+  // Timestamps
+  expiresAt       DateTime? // QR code expiry
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// IPS QR Code tracking
+// ============================================
+
+model IpsPayment {
+  id              String   @id @default(cuid())
+  paymentId       String   @unique
+  // IPS standard fields
+  identificationCode String // K:PR or K:OT
+  version         String   @default("01")
+  characterSet    String   @default("1") // 1 = UTF-8
+  // Recipient (our company)
+  recipientName   String   // Naziv primaoca
+  recipientAccount String  // IBAN primaoca
+  // Amount
+  amount          String   // Formatted amount (e.g., "RSD300,00")
+  amountRsd       Int      // Amount in RSD for calculations
+  // Reference
+  referenceModel  String   @default("97") // Model poziva na broj
+  referenceNumber String   // Poziv na broj - unique per payment
+  // Payment details
+  paymentCode     String   @default("289") // Šifra plaćanja
+  paymentPurpose  String   // Svrha plaćanja
+  // Status
+  status          String   @default("PENDING") // PENDING, PAID, EXPIRED, CANCELLED
+  // Timestamps
+  paidAt          DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+}
+
+// ============================================
+// Subscription Plans (Config)
+// ============================================
+
+model SubscriptionPlan {
+  id              String   @id @default(cuid())
+  // Plan identification
+  code            String   @unique // FREE, STARTER, PRO, UNLIMITED
+  name            String   // Display name
+  description     String?
+  // Pricing
+  priceMonthly    Int      // Monthly price in RSD
+  priceYearly     Int?     // Yearly price in RSD (discounted)
+  currency        String   @default("RSD")
+  // Features
+  creditsPerMonth Int      // How many contacts/matches per month
+  features        String?  // JSON array of features
+  // Limits
+  maxActiveJobs   Int?     // Max active job posts
+  priorityListing Boolean  @default(false)
+  verifiedBadge   Boolean  @default(false)
+  featuredProfile Boolean  @default(false)
+  // Status
+  isActive        Boolean  @default(true)
+  isPopular       Boolean  @default(false) // Show "Popular" badge
+  // Display
+  displayOrder    Int      @default(0)
+  colorAccent     String?  // Hex color for plan card
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ============================================
+// Site Settings - Beta/Launch Configuration
+// ============================================
+
+model SiteSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

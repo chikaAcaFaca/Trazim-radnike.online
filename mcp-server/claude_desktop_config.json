@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "trazim-radnike": {
+      "command": "npx",
+      "args": ["tsx", "E:/preuzimanje/ClaudeCode/trazim-radnike.online/mcp-server/src/index.ts"],
+      "env": {}
+    }
+  }
+}

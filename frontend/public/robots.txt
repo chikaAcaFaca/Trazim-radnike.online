@@ -1,0 +1,34 @@
+# Tražim-Radnike.online robots.txt
+# https://trazim-radnike.online
+
+User-agent: *
+
+# Allow public pages
+Allow: /
+Allow: /oglasi
+Allow: /majstori
+Allow: /prijava
+Allow: /registracija
+
+# Block private/sensitive URLs
+Disallow: /kontrolna-tabla/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /oauth-callback
+Disallow: /verifikacija-email
+Disallow: /reset-lozinke
+
+# Block URLs with secret tokens
+Disallow: /*?rf=*
+Disallow: /*?token=*
+
+# Block search and filter URLs to avoid duplicate content
+Disallow: /*?page=*
+Disallow: /*?sort=*
+Disallow: /*?filter=*
+
+# Sitemap location
+Sitemap: https://trazim-radnike.online/sitemap.xml
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1
