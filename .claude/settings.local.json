@@ -34,7 +34,10 @@
       "Bash(node -e:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: Full stack job platform\n\n- Next.js 14 frontend with TailwindCSS\n- Express.js backend with TypeScript\n- Prisma ORM with SQLite (dev) / PostgreSQL (prod)\n- JWT auth with email/phone verification\n- Google & Facebook OAuth\n- Claude AI chatbot integration\n- GDPR compliant with data deletion endpoint\n- 186 passing tests (107 backend + 79 frontend)\n\n🤖 Generated with Claude Code\nEOF\n)\")",
       "Bash(git remote set-url:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

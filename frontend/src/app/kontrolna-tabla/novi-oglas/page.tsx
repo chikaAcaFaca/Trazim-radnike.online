@@ -100,13 +100,21 @@ export default function NewJobPage() {
   const [error, setError] = useState<string | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoadingCompany, setIsLoadingCompany] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Wait for client-side hydration
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Load company data
   useEffect(() => {
-    if (tokens?.accessToken) {
+    if (isMounted && tokens?.accessToken) {
       loadCompany();
+    } else if (isMounted && !tokens?.accessToken) {
+      setIsLoadingCompany(false);
     }
-  }, [tokens?.accessToken]);
+  }, [isMounted, tokens?.accessToken]);
 
   const loadCompany = async () => {
     try {
@@ -128,18 +136,16 @@ export default function NewJobPage() {
   };
 
   // Redirect if not authenticated or phone not verified
-  if (!isAuthenticated || !user) {
-    router.push('/prijava');
-    return null;
-  }
+  useEffect(() => {
+    if (isMounted && !isAuthenticated) {
+      router.push('/prijava');
+    } else if (isMounted && user && !user.phoneVerified) {
+      router.push('/kontrolna-tabla');
+    }
+  }, [isMounted, isAuthenticated, user, router]);
 
-  if (!user.phoneVerified) {
-    router.push('/kontrolna-tabla');
-    return null;
-  }
-
-  // Show loading while checking company
-  if (isLoadingCompany) {
+  // Show loading while checking auth or company
+  if (!isMounted || isLoadingCompany) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p className="text-gray-500">Ucitavanje...</p>
