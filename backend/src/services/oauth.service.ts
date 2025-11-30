@@ -101,7 +101,7 @@ class OAuthService {
       throw new ApiError(400, 'Greška pri Google autentifikaciji');
     }
 
-    return response.json();
+    return response.json() as Promise<GoogleTokenResponse>;
   }
 
   /**
@@ -118,7 +118,7 @@ class OAuthService {
       throw new ApiError(400, 'Greška pri dobijanju Google korisničkih podataka');
     }
 
-    return response.json();
+    return response.json() as Promise<GoogleUserInfo>;
   }
 
   /**
@@ -192,7 +192,7 @@ class OAuthService {
       throw new ApiError(400, 'Greška pri Facebook autentifikaciji');
     }
 
-    return response.json();
+    return response.json() as Promise<FacebookTokenResponse>;
   }
 
   /**
@@ -210,7 +210,7 @@ class OAuthService {
       throw new ApiError(400, 'Greška pri dobijanju Facebook korisničkih podataka');
     }
 
-    return response.json();
+    return response.json() as Promise<FacebookUserInfo>;
   }
 
   /**
@@ -247,9 +247,12 @@ class OAuthService {
   async findOrCreateOAuthUser(data: OAuthUserData) {
     const { provider, providerId, email, name, picture } = data;
 
-    // First, try to find user by email
-    let user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+    // First, try to find user by OAuth provider + ID (most reliable)
+    let user = await prisma.user.findFirst({
+      where: {
+        oauthProvider: provider,
+        oauthId: providerId,
+      },
       include: {
         company: true,
         worker: true,
@@ -257,13 +260,34 @@ class OAuthService {
       },
     });
 
+    // If not found by OAuth ID, try by email
+    if (!user) {
+      user = await prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+        include: {
+          company: true,
+          worker: true,
+          household: true,
+        },
+      });
+    }
+
     if (user) {
-      // User exists - update last login
-      await prisma.user.update({
+      // User exists - update OAuth info and last login
+      user = await prisma.user.update({
         where: { id: user.id },
         data: {
           lastLoginAt: new Date(),
           emailVerified: true, // OAuth emails are verified by provider
+          oauthProvider: provider,
+          oauthId: providerId,
+          oauthPicture: picture || user.oauthPicture,
+          name: name || user.name,
+        },
+        include: {
+          company: true,
+          worker: true,
+          household: true,
         },
       });
 
@@ -279,6 +303,10 @@ class OAuthService {
           gdprConsent: true, // Will require explicit consent on frontend
           gdprConsentAt: new Date(),
           lastLoginAt: new Date(),
+          oauthProvider: provider,
+          oauthId: providerId,
+          oauthPicture: picture,
+          name: name,
         },
         include: {
           company: true,

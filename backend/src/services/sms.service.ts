@@ -65,7 +65,7 @@ class SmsService {
         return false;
       }
 
-      const result: TwilioMessageResponse = await response.json();
+      const result = await response.json() as TwilioMessageResponse;
       logger.info({ sid: result.sid, to: result.to, status: result.status }, 'SMS uspešno poslat');
       return true;
     } catch (error) {

@@ -501,7 +501,8 @@ router.post(
 
     try {
       // Parse the signed request from Facebook
-      const [encodedSig, payload] = signed_request.split('.');
+      // Note: encodedSig can be used for HMAC verification with FACEBOOK_APP_SECRET
+      const [_encodedSig, payload] = signed_request.split('.');
 
       // Decode the payload
       const data = JSON.parse(

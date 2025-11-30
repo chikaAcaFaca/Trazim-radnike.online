@@ -30,6 +30,12 @@ model User {
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
 
+  // OAuth fields
+  oauthProvider   String?   // google, facebook
+  oauthId         String?   // Provider-specific user ID
+  oauthPicture    String?   // Profile picture URL from OAuth
+  name            String?   // Full name from OAuth
+
   // Relations
   company            Company?
   worker             Worker?
@@ -39,6 +45,8 @@ model User {
   auditLogs          AuditLog[]
   payments           Payment[]
   subscriptions      Subscription[]
+
+  @@index([oauthProvider, oauthId])
 }
 
 model Company {
